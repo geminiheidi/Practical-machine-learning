@@ -1,2 +1,1 @@
-# hello-world
-Just another repository
+Xu Jing's project for Practical machine learning.
