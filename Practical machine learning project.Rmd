@@ -39,6 +39,7 @@ In order to perform above mentioned forecast modelling project, I need to instal
 library(data.table) #fread()
 library(caret) #nearZeroVar(), createDataPartition(), preProcess(), predict(),train(), confusionMatrix()
 library(randomForest) 
+library(forestFloor)
 
 TrainURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 TestURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
@@ -251,6 +252,16 @@ Detection Rate         0.2795   0.1828   0.1670   0.1557   0.1769
 Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
 Balanced Accuracy      0.9865   0.9651   0.9561   0.9801   0.9894
 ```
+Random forest without pca outperforms the other three models. I further visualized the structure of modFit3 model by plotting predictor variables’ change of predicted probability(y-axis)  due to  variable change(x-axis) with the four most important predictive variables: roll_belt, yaw_belt,pitch_forearm, magnet_dumbbell_z. Use this tip: [forestFloor visualization of randomForest ](http://forestfloor.dk/)
+
+```{r}
+modFit3<-randomForest(as.factor(classe)~.,data=training,keep.forest=TRUE,keep.inbag=TRUE,importance=TRUE)
+ff = forestFloor(modFit3,training[,-1])
+plot(ff)
+```
+
+![image](https://cloud.githubusercontent.com/assets/26728788/24591075/25c3d088-17ae-11e7-880d-dadbcb0feb3b.png)
+
 
 > **Conclusion**
 
@@ -265,19 +276,7 @@ prediction<-predict(modFit3,testing)
 The final outcome is not presented here in keeping with the terms of the Coursera Honor Code.
 
 
-> **Submission to Coursera**
 
-(using COURSERA provided code)
-
-```{r}
-pml_write_files = function(x){
-  n = length(x)
-  for(i in 1:n){
-    filename = paste0("problem_id_",i,".txt")
-    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
-  }
-}
-```
 
 
 
