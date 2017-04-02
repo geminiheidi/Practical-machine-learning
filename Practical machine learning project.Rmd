@@ -2,7 +2,7 @@
 
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
 
-Data
+> **Data**
 
 The training data for this project are available here:
 
@@ -15,23 +15,256 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
 The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
 
-What you should submit
+> **What you should submit**
 
 The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
 
-Peer Review Portion
+> **Peer Review Portion**
 
 Your submission for the Peer Review portion should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
 
-Course Project Prediction Quiz Portion
+> **Course Project Prediction Quiz Portion**
 
 Apply your machine learning algorithm to the 20 test cases available in the test data above and submit your predictions in appropriate format to the Course Project Prediction Quiz for automated grading.
 
-Reproducibility
+> **Reproducibility**
 
 Due to security concerns with the exchange of R code, your code will not be run during the evaluation by your classmates. Please be sure that if they download the repo, they will be able to view the compiled HTML version of your analysis.
 
+> **Acquiring Data**
+In order to perform above mentioned forecast modelling project, I need to install following packages. I also listed after each package the affiliated functions which will be used during the following procedure. 
+
 ```{r}
-TrainURL<-“https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv”
+library(data.table) #fread()
+library(caret) #nearZeroVar(), createDataPartition(), preProcess(), predict(),train(), confusionMatrix()
+library(randomForest) 
+
+TrainURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+TestURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+Training<-fread(TrainURL)
+Testing<-fread(TestURL)
 ```
+> **Data cleansing**
+The train data set includes 19622 rows and 160 columns, with "classe" as its target variable. However, there are many missing values. Thus I First deleted the columns with NA, missing value and string"#DIV/0!". 
+```{r}
+Delcol<-sapply(Training, function(x) any(is.na(x)|x==""|x=="#DIV/0!"))
+Training<-Training[,names(Training)[!Delcol], with=FALSE]
+# dim(Training) 19622 60
+```
+Second I deleted the columns with near zero variables: "new_window"
+```{r}
+nzv<- nearZeroVar(Training, saveMetrics=TRUE)
+Training<-Training[,which(nzv['nzv']==FALSE),with=FALSE]
+#dim(Training) 19622 59
+```
+> **Data Slicing and preprocessing**
+I set 40% of the training data set as validation data set.  I set seed to get the reproducible random numbers.
+```{r}
+set.seed(33833)
+inTrain<-createDataPartition(y=Training$classe,p=0.6,list=FALSE)
+training<-Training[inTrain,]
+probing<-Training[-inTrain,]
+```
+The first six variables logically has nothing to do with the quality of execution of the weight lifting exercise, therefore I excluded them from being predictors to prevent spurious regression. After confirming their numerical structure nature, I performed centering and scaling toward the other predictors. 
+
+```{r}
+str(training)
+predictors<-sapply(training[,-c(59,1:6)],scale)
+training<-training[,c("classe",names(data.table(predictors))),with=FALSE]
+# dim(training) 11776 53
+predictors<-sapply(probing[,-c(59,1:6)],scale)
+probing<-probing[,c("classe",names(data.table(predictors))),with=FALSE]
+```
+
+As the presence of high dimensional data may contain redundant or highly correlated attributes(19 pairs of predictors pose correlation coefficient larger than 0.8), I employed principal componant analysis to reduce dimensionality of the dataset. The cutoff for the cumulative percent of variance to be retained is 95%. pca reduces the number of attributes from 52 to 24. 
+
+```{r}
+M<-abs(cor(training[,-1]))
+diag(M)<-0
+which(M>0.8, arr.ind=T)
+
+preProc<-preProcess(training[,-53],method='pca',thresh=0.95)
+trainPC<-predict(preProc,training[,-53])
+#dim(trainPC) 11776 25
+```
+> **Forecasting and evaluation**
+As random forest,along with boosting, are the most accurate classifiers that we can use, below I fit four predictive models to training data set: (1) random forest with pca method; (2) boosting with pca method; (3) random forest without pca method; (4) boosting without pca method. The four models then are applied to validation data set in order to choose the most fit model with highest accuracy. 
+
+```{r}
+#modFit1
+modFit1<-randomForest(as.factor(classe)~.,data=trainPC)
+ProbPC<-predict(preProc,probing[,-53])
+confusionMatrix(probing$classe,predict(modFit1,ProbPC))
+#modFit2
+modFit2<-train(as.factor(classe)~.,method='gbm',data=trainPC)
+ProbPC<-predict(preProc,probing[,-53])
+confusionMatrix(probing$classe,predict(modFit2,ProbPC))
+#modFit3
+modFit3<-randomForest(as.factor(classe)~.,data=training)
+confusionMatrix(probing$classe,predict(modFit3,probing))
+#modFit4
+modFit4<-train(as.factor(classe)~.,method='gbm',data=training)
+confusionMatrix(probing$classe,predict(modFit4,probing))
+```
+Below are summation of the above four models:
+
+**modFit1**
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 2210   11    4    6    1
+         B   28 1474   11    3    2
+         C    2   18 1322   21    5
+         D    2    1   65 1209    9
+         E    0   17   15   11 1399
+
+Overall Statistics
+                                          
+               Accuracy : 0.9704          
+                 95% CI : (0.9664, 0.9741)
+    No Information Rate : 0.2858          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9626          
+ Mcnemar's Test P-Value : 6.492e-08       
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9857   0.9691   0.9330   0.9672   0.9880
+Specificity            0.9961   0.9930   0.9928   0.9883   0.9933
+Pos Pred Value         0.9901   0.9710   0.9664   0.9401   0.9702
+Neg Pred Value         0.9943   0.9926   0.9853   0.9937   0.9973
+Prevalence             0.2858   0.1939   0.1806   0.1593   0.1805
+Detection Rate         0.2817   0.1879   0.1685   0.1541   0.1783
+Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+Balanced Accuracy      0.9909   0.9811   0.9629   0.9778   0.9907
+
+**modFit2**
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 1997   67   69   84   15
+         B  169 1111  143   34   61
+         C   57  117 1123   47   24
+         D   48   36  136 1042   24
+         E   43  135   91   58 1115
+
+Overall Statistics
+                                          
+               Accuracy : 0.8142          
+                 95% CI : (0.8054, 0.8227)
+    No Information Rate : 0.2949          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.7647          
+ Mcnemar's Test P-Value : < 2.2e-16       
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.8630   0.7578   0.7190   0.8237   0.8999
+Specificity            0.9575   0.9362   0.9610   0.9629   0.9505
+Pos Pred Value         0.8947   0.7319   0.8209   0.8103   0.7732
+Neg Pred Value         0.9435   0.9439   0.9322   0.9660   0.9806
+Prevalence             0.2949   0.1868   0.1991   0.1612   0.1579
+Detection Rate         0.2545   0.1416   0.1431   0.1328   0.1421
+Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+Balanced Accuracy      0.9103   0.8470   0.8400   0.8933   0.9252
+
+**modFit3**
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 2230    2    0    0    0
+         B    9 1508    1    0    0
+         C    0    5 1363    0    0
+         D    0    0   17 1268    1
+         E    0    0    0    7 1435
+
+Overall Statistics
+                                          
+               Accuracy : 0.9946          
+                 95% CI : (0.9928, 0.9961)
+    No Information Rate : 0.2854          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.9932          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9960   0.9954   0.9870   0.9945   0.9993
+Specificity            0.9996   0.9984   0.9992   0.9973   0.9989
+Pos Pred Value         0.9991   0.9934   0.9963   0.9860   0.9951
+Neg Pred Value         0.9984   0.9989   0.9972   0.9989   0.9998
+Prevalence             0.2854   0.1931   0.1760   0.1625   0.1830
+Detection Rate         0.2842   0.1922   0.1737   0.1616   0.1829
+Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+Balanced Accuracy      0.9978   0.9969   0.9931   0.9959   0.9991
+
+**modFit4**
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    A    B    C    D    E
+         A 2193   26   12    1    0
+         B   43 1434   39    0    2
+         C    0   37 1310   18    3
+         D    1    6   44 1222   13
+         E    1   17   17   19 1388
+
+Overall Statistics
+                                         
+               Accuracy : 0.9619         
+                 95% CI : (0.9574, 0.966)
+    No Information Rate : 0.2852         
+    P-Value [Acc > NIR] : < 2.2e-16      
+                                         
+                  Kappa : 0.9518         
+ Mcnemar's Test P-Value : 1.385e-08      
+
+Statistics by Class:
+
+                     Class: A Class: B Class: C Class: D Class: E
+Sensitivity            0.9799   0.9434   0.9212   0.9698   0.9872
+Specificity            0.9930   0.9867   0.9910   0.9903   0.9916
+Pos Pred Value         0.9825   0.9447   0.9576   0.9502   0.9626
+Neg Pred Value         0.9920   0.9864   0.9827   0.9942   0.9972
+Prevalence             0.2852   0.1937   0.1812   0.1606   0.1792
+Detection Rate         0.2795   0.1828   0.1670   0.1557   0.1769
+Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+Balanced Accuracy      0.9865   0.9651   0.9561   0.9801   0.9894
+
+> **Conclusion**
+It's interesting that, according to our data set, random forest outperforms boosting and pca method is better not to be used. My project produces three results: (1) random forest without pca method should be used to original test model; (2) As the accuracy of the best model fit **modFit3** is 0.9946, the expected out of sample error is 0.54%; (3) pca methord not necessarily always improves the predictive performance. 
+
+**executing on the original test data set**
+```{r}
+testing<-Testing[,names(data.table(predictors)),with=FALSE]
+prediction<-predict(modFit3,testing)
+```
+The final outcome is not presented here in keeping with the terms of the Coursera Honor Code.
+
+
+> **Submission to Coursera**
+(using COURSERA provided code)
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+```
+
+
+
+
 
