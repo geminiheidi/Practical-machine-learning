@@ -32,6 +32,7 @@ Apply your machine learning algorithm to the 20 test cases available in the test
 Due to security concerns with the exchange of R code, your code will not be run during the evaluation by your classmates. Please be sure that if they download the repo, they will be able to view the compiled HTML version of your analysis.
 
 > **Acquiring Data**
+
 In order to perform above mentioned forecast modelling project, I need to install following packages. I also listed after each package the affiliated functions which will be used during the following procedure. 
 
 ```{r}
@@ -45,6 +46,7 @@ Training<-fread(TrainURL)
 Testing<-fread(TestURL)
 ```
 > **Data cleansing**
+
 The train data set includes 19622 rows and 160 columns, with "classe" as its target variable. However, there are many missing values. Thus I First deleted the columns with NA, missing value and string"#DIV/0!". 
 ```{r}
 Delcol<-sapply(Training, function(x) any(is.na(x)|x==""|x=="#DIV/0!"))
@@ -58,6 +60,7 @@ Training<-Training[,which(nzv['nzv']==FALSE),with=FALSE]
 #dim(Training) 19622 59
 ```
 > **Data Slicing and preprocessing**
+
 I set 40% of the training data set as validation data set.  I set seed to get the reproducible random numbers.
 ```{r}
 set.seed(33833)
@@ -88,6 +91,7 @@ trainPC<-predict(preProc,training[,-53])
 #dim(trainPC) 11776 25
 ```
 > **Forecasting and evaluation**
+
 As random forest,along with boosting, are the most accurate classifiers that we can use, below I fit four predictive models to training data set: (1) random forest with pca method; (2) boosting with pca method; (3) random forest without pca method; (4) boosting without pca method. The four models then are applied to validation data set in order to choose the most fit model with highest accuracy. 
 
 ```{r}
@@ -109,6 +113,7 @@ confusionMatrix(probing$classe,predict(modFit4,probing))
 Below are summation of the above four models:
 
 **modFit1**
+```{r}
 Confusion Matrix and Statistics
 
           Reference
@@ -140,8 +145,10 @@ Prevalence             0.2858   0.1939   0.1806   0.1593   0.1805
 Detection Rate         0.2817   0.1879   0.1685   0.1541   0.1783
 Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
 Balanced Accuracy      0.9909   0.9811   0.9629   0.9778   0.9907
+```
 
 **modFit2**
+```{r}
 Confusion Matrix and Statistics
 
           Reference
@@ -173,8 +180,10 @@ Prevalence             0.2949   0.1868   0.1991   0.1612   0.1579
 Detection Rate         0.2545   0.1416   0.1431   0.1328   0.1421
 Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
 Balanced Accuracy      0.9103   0.8470   0.8400   0.8933   0.9252
+```
 
 **modFit3**
+```{r}
 Confusion Matrix and Statistics
 
           Reference
@@ -206,8 +215,10 @@ Prevalence             0.2854   0.1931   0.1760   0.1625   0.1830
 Detection Rate         0.2842   0.1922   0.1737   0.1616   0.1829
 Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
 Balanced Accuracy      0.9978   0.9969   0.9931   0.9959   0.9991
+```
 
 **modFit4**
+```{r}
 Confusion Matrix and Statistics
 
           Reference
@@ -239,11 +250,14 @@ Prevalence             0.2852   0.1937   0.1812   0.1606   0.1792
 Detection Rate         0.2795   0.1828   0.1670   0.1557   0.1769
 Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
 Balanced Accuracy      0.9865   0.9651   0.9561   0.9801   0.9894
+```
 
 > **Conclusion**
+
 It's interesting that, according to our data set, random forest outperforms boosting and pca method is better not to be used. My project produces three results: (1) random forest without pca method should be used to original test model; (2) As the accuracy of the best model fit **modFit3** is 0.9946, the expected out of sample error is 0.54%; (3) pca methord not necessarily always improves the predictive performance. 
 
 **executing on the original test data set**
+
 ```{r}
 testing<-Testing[,names(data.table(predictors)),with=FALSE]
 prediction<-predict(modFit3,testing)
@@ -252,6 +266,7 @@ The final outcome is not presented here in keeping with the terms of the Courser
 
 
 > **Submission to Coursera**
+
 (using COURSERA provided code)
 
 ```{r}
