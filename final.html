@@ -118,14 +118,14 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Practical machine learning project</h1>
 <h4 class="author"><em>XU Jing</em></h4>
-<h4 class="date"><em>2017年3月31日</em></h4>
+<h4 class="date"><em>March 31 2017</em></h4>
 
 </div>
 
 
 <div id="background" class="section level2">
 <h2>Background</h2>
-<p>Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a> (see the section on the Weight Lifting Exercise Dataset).</p>
+<p>Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement ?C a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a> (see the section on the Weight Lifting Exercise Dataset).</p>
 </div>
 <div id="data" class="section level2">
 <h2>Data</h2>
@@ -156,8 +156,8 @@ $(document).ready(function () {
 <p>In order to perform above mentioned forecast modelling project, I need to install following packages. I also listed after each package the affiliated functions which will be used during the following procedure.</p>
 <pre class="r"><code>library(data.table) #fread()
 library(caret) #nearZeroVar(), createDataPartition(), preProcess(), predict(),train(), confusionMatrix()
-library(randomForest) 
-library(forestFloor)</code></pre>
+library(randomForest)
+## library(forestFloor)</code></pre>
 <pre class="r"><code>TrainURL&lt;-&quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;
 TestURL&lt;-&quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;
 Training&lt;-fread(TrainURL)
@@ -202,152 +202,156 @@ dim(trainPC) </code></pre>
 </div>
 <div id="forecasting-and-evaluation" class="section level2">
 <h2>Forecasting and evaluation</h2>
-<p>As random forest,along with boosting, are the most accurate classifiers that we can use, below I fit four predictive models to training data set: (1) random forest with pca method; (2) boosting with pca method; (3) random forest without pca method; (4) boosting without pca method. The four models then are applied to validation data set in order to choose the most fit model with highest accuracy.</p>
+<p>As random forest,along with boosting, are the most accurate classifiers that we can use, below I fit four predictive models to training data set: (1) random forest with pca method; (2) boosting with pca method; (3) random forest without pca method; (4) boosting without pca method. The four models then are applied to validation data set in order to choose the most fit model with highest accuracy. I used a 2-fold cross-validation control. This is the simplest k-fold cross-validation possible and it will give a reduced computational time.</p>
 <pre class="r"><code>#modFit1
-modFit1&lt;-randomForest(as.factor(classe)~.,data=trainPC)
+modFit1&lt;-randomForest(as.factor(classe)~.,data=trainPC,trControl=trainControl(method=&quot;cv&quot;,number=2))
 ProbPC&lt;-predict(preProc,probing[,-53])
-confusionMatrix(probing$classe,predict(modFit1,ProbPC))
+result1&lt;-confusionMatrix(probing$classe,predict(modFit1,ProbPC))
 #modFit2
-modFit2&lt;-train(as.factor(classe)~.,method='gbm',data=trainPC)
+modFit2&lt;-train(as.factor(classe)~.,method='gbm',data=trainPC,trControl=trainControl(method=&quot;cv&quot;,number=2))
 ProbPC&lt;-predict(preProc,probing[,-53])
-confusionMatrix(probing$classe,predict(modFit2,ProbPC))
+result2&lt;-confusionMatrix(probing$classe,predict(modFit2,ProbPC))
 #modFit3
-modFit3&lt;-randomForest(as.factor(classe)~.,data=training)
-confusionMatrix(probing$classe,predict(modFit3,probing))
+modFit3&lt;-randomForest(as.factor(classe)~.,data=training,trControl=trainControl(method=&quot;cv&quot;,number=2))
+result3&lt;-confusionMatrix(probing$classe,predict(modFit3,probing))
 #modFit4
-modFit4&lt;-train(as.factor(classe)~.,method='gbm',data=training)
-confusionMatrix(probing$classe,predict(modFit4,probing))</code></pre>
+modFit4&lt;-train(as.factor(classe)~.,method='gbm',data=training,trControl=trainControl(method=&quot;cv&quot;,number=2))
+result4&lt;-confusionMatrix(probing$classe,predict(modFit4,probing))</code></pre>
 <p>Below are summation of the above four models:</p>
 <p><strong>modFit1</strong></p>
-<pre class="r"><code>Confusion Matrix and Statistics
-
-          Reference
-Prediction    A    B    C    D    E
-         A 2210   11    4    6    1
-         B   28 1474   11    3    2
-         C    2   18 1322   21    5
-         D    2    1   65 1209    9
-         E    0   17   15   11 1399
-
-Overall Statistics
-                                          
-               Accuracy : 0.9704          
-                 95% CI : (0.9664, 0.9741)
-    No Information Rate : 0.2858          
-    P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-                                          
-                  Kappa : 0.9626          
- Mcnemar's Test P-Value : 6.492e-08       
-
-Statistics by Class:
-
-                     Class: A Class: B Class: C Class: D Class: E
-Sensitivity            0.9857   0.9691   0.9330   0.9672   0.9880
-Specificity            0.9961   0.9930   0.9928   0.9883   0.9933
-Pos Pred Value         0.9901   0.9710   0.9664   0.9401   0.9702
-Neg Pred Value         0.9943   0.9926   0.9853   0.9937   0.9973
-Prevalence             0.2858   0.1939   0.1806   0.1593   0.1805
-Detection Rate         0.2817   0.1879   0.1685   0.1541   0.1783
-Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-Balanced Accuracy      0.9909   0.9811   0.9629   0.9778   0.9907</code></pre>
+<pre class="r"><code>result1</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2206   14    4    7    1
+##          B   26 1477    9    4    2
+##          C    2   21 1321   19    5
+##          D    3    1   67 1205   10
+##          E    0   19   15   12 1396
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.9693         
+##                  95% CI : (0.9652, 0.973)
+##     No Information Rate : 0.2851         
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
+##                                          
+##                   Kappa : 0.9611         
+##  Mcnemar's Test P-Value : 5.132e-09      
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9861   0.9641   0.9329   0.9663   0.9873
+## Specificity            0.9954   0.9935   0.9927   0.9877   0.9928
+## Pos Pred Value         0.9884   0.9730   0.9656   0.9370   0.9681
+## Neg Pred Value         0.9945   0.9913   0.9853   0.9936   0.9972
+## Prevalence             0.2851   0.1953   0.1805   0.1589   0.1802
+## Detection Rate         0.2812   0.1882   0.1684   0.1536   0.1779
+## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      0.9908   0.9788   0.9628   0.9770   0.9901</code></pre>
 <p><strong>modFit2</strong></p>
-<pre class="r"><code>Confusion Matrix and Statistics
-
-          Reference
-Prediction    A    B    C    D    E
-         A 1997   67   69   84   15
-         B  169 1111  143   34   61
-         C   57  117 1123   47   24
-         D   48   36  136 1042   24
-         E   43  135   91   58 1115
-
-Overall Statistics
-                                          
-               Accuracy : 0.8142          
-                 95% CI : (0.8054, 0.8227)
-    No Information Rate : 0.2949          
-    P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-                                          
-                  Kappa : 0.7647          
- Mcnemar's Test P-Value : &lt; 2.2e-16       
-
-Statistics by Class:
-
-                     Class: A Class: B Class: C Class: D Class: E
-Sensitivity            0.8630   0.7578   0.7190   0.8237   0.8999
-Specificity            0.9575   0.9362   0.9610   0.9629   0.9505
-Pos Pred Value         0.8947   0.7319   0.8209   0.8103   0.7732
-Neg Pred Value         0.9435   0.9439   0.9322   0.9660   0.9806
-Prevalence             0.2949   0.1868   0.1991   0.1612   0.1579
-Detection Rate         0.2545   0.1416   0.1431   0.1328   0.1421
-Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-Balanced Accuracy      0.9103   0.8470   0.8400   0.8933   0.9252</code></pre>
+<pre class="r"><code>result2</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1980   74   65   91   22
+##          B  158 1118  145   36   61
+##          C   64  116 1127   41   20
+##          D   46   45  143 1031   21
+##          E   37  119   93   61 1132
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.8142          
+##                  95% CI : (0.8054, 0.8227)
+##     No Information Rate : 0.2912          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.7648          
+##  Mcnemar's Test P-Value : &lt; 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.8665   0.7595   0.7165   0.8183   0.9013
+## Specificity            0.9547   0.9372   0.9616   0.9613   0.9530
+## Pos Pred Value         0.8871   0.7365   0.8238   0.8017   0.7850
+## Neg Pred Value         0.9457   0.9441   0.9312   0.9651   0.9806
+## Prevalence             0.2912   0.1876   0.2005   0.1606   0.1601
+## Detection Rate         0.2524   0.1425   0.1436   0.1314   0.1443
+## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      0.9106   0.8484   0.8390   0.8898   0.9271</code></pre>
 <p><strong>modFit3</strong></p>
-<pre class="r"><code>Confusion Matrix and Statistics
-
-          Reference
-Prediction    A    B    C    D    E
-         A 2230    2    0    0    0
-         B    9 1508    1    0    0
-         C    0    5 1363    0    0
-         D    0    0   17 1268    1
-         E    0    0    0    7 1435
-
-Overall Statistics
-                                          
-               Accuracy : 0.9946          
-                 95% CI : (0.9928, 0.9961)
-    No Information Rate : 0.2854          
-    P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-                                          
-                  Kappa : 0.9932          
- Mcnemar's Test P-Value : NA              
-
-Statistics by Class:
-
-                     Class: A Class: B Class: C Class: D Class: E
-Sensitivity            0.9960   0.9954   0.9870   0.9945   0.9993
-Specificity            0.9996   0.9984   0.9992   0.9973   0.9989
-Pos Pred Value         0.9991   0.9934   0.9963   0.9860   0.9951
-Neg Pred Value         0.9984   0.9989   0.9972   0.9989   0.9998
-Prevalence             0.2854   0.1931   0.1760   0.1625   0.1830
-Detection Rate         0.2842   0.1922   0.1737   0.1616   0.1829
-Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-Balanced Accuracy      0.9978   0.9969   0.9931   0.9959   0.9991</code></pre>
+<pre class="r"><code>result3</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2231    1    0    0    0
+##          B    8 1507    3    0    0
+##          C    0    5 1363    0    0
+##          D    0    0   16 1269    1
+##          E    0    0    0    7 1435
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9948          
+##                  95% CI : (0.9929, 0.9962)
+##     No Information Rate : 0.2854          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9934          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9964   0.9960   0.9863   0.9945   0.9993
+## Specificity            0.9998   0.9983   0.9992   0.9974   0.9989
+## Pos Pred Value         0.9996   0.9928   0.9963   0.9868   0.9951
+## Neg Pred Value         0.9986   0.9991   0.9971   0.9989   0.9998
+## Prevalence             0.2854   0.1928   0.1761   0.1626   0.1830
+## Detection Rate         0.2843   0.1921   0.1737   0.1617   0.1829
+## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      0.9981   0.9971   0.9927   0.9960   0.9991</code></pre>
 <p><strong>modFit4</strong></p>
-<pre class="r"><code>Confusion Matrix and Statistics
-
-          Reference
-Prediction    A    B    C    D    E
-         A 2193   26   12    1    0
-         B   43 1434   39    0    2
-         C    0   37 1310   18    3
-         D    1    6   44 1222   13
-         E    1   17   17   19 1388
-
-Overall Statistics
-                                         
-               Accuracy : 0.9619         
-                 95% CI : (0.9574, 0.966)
-    No Information Rate : 0.2852         
-    P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
-                                         
-                  Kappa : 0.9518         
- Mcnemar's Test P-Value : 1.385e-08      
-
-Statistics by Class:
-
-                     Class: A Class: B Class: C Class: D Class: E
-Sensitivity            0.9799   0.9434   0.9212   0.9698   0.9872
-Specificity            0.9930   0.9867   0.9910   0.9903   0.9916
-Pos Pred Value         0.9825   0.9447   0.9576   0.9502   0.9626
-Neg Pred Value         0.9920   0.9864   0.9827   0.9942   0.9972
-Prevalence             0.2852   0.1937   0.1812   0.1606   0.1792
-Detection Rate         0.2795   0.1828   0.1670   0.1557   0.1769
-Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
-Balanced Accuracy      0.9865   0.9651   0.9561   0.9801   0.9894</code></pre>
-<p>Random forest without pca outperforms the other three models. I further visualized the structure of modFit3 model by plotting predictor variables’ change of predicted probability(y-axis) due to variable change(x-axis) with the four most important predictive variables: roll_belt, yaw_belt,pitch_forearm, magnet_dumbbell_z. Use this tip: <a href="http://forestfloor.dk/">forestFloor visualization of randomForest</a></p>
-<pre class="r"><code>modFit3&lt;-randomForest(as.factor(classe)~.,data=training,keep.forest=TRUE,keep.inbag=TRUE,importance=TRUE)
+<pre class="r"><code>result4</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2194   27    7    3    1
+##          B   42 1439   36    1    0
+##          C    0   36 1312   17    3
+##          D    1    3   44 1226   12
+##          E    1   20   16   19 1386
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9632          
+##                  95% CI : (0.9588, 0.9672)
+##     No Information Rate : 0.2852          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9534          
+##  Mcnemar's Test P-Value : 3.613e-08       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.9803   0.9436   0.9272   0.9684   0.9886
+## Specificity            0.9932   0.9875   0.9913   0.9909   0.9913
+## Pos Pred Value         0.9830   0.9480   0.9591   0.9533   0.9612
+## Neg Pred Value         0.9922   0.9864   0.9841   0.9939   0.9975
+## Prevalence             0.2852   0.1944   0.1803   0.1614   0.1787
+## Detection Rate         0.2796   0.1834   0.1672   0.1563   0.1767
+## Detection Prevalence   0.2845   0.1935   0.1744   0.1639   0.1838
+## Balanced Accuracy      0.9868   0.9656   0.9593   0.9796   0.9899</code></pre>
+<p>The out of sample error of the above four models are: 1-0.9693=3%,1-0.8142=19%,1-0.9948=0.52%,1-0.9632=3.7% Random forest without pca outperforms the other three models. I further visualized the structure of modFit3 model by plotting predictor variables?? change of predicted probability(y-axis) due to variable change(x-axis) with the four most important predictive variables: roll_belt, yaw_belt,pitch_forearm, magnet_dumbbell_z. Use this tip: <a href="http://forestfloor.dk/">forestFloor visualization of randomForest</a></p>
+<pre class="r"><code>modFit3&lt;-randomForest(as.factor(classe)~.,data=training,trControl=trainControl(method=&quot;cv&quot;,number=2),keep.forest=TRUE,keep.inbag=TRUE,importance=TRUE)
 ff = forestFloor(modFit3,training[,-1])
 plot(ff)</code></pre>
 <div class="figure">
@@ -357,7 +361,7 @@ plot(ff)</code></pre>
 </div>
 <div id="conclusion" class="section level2">
 <h2>Conclusion</h2>
-<p>It’s interesting that, according to our data set, random forest outperforms boosting and pca method is better not to be used. My project produces three results: (1) random forest without pca method should be used to original test model; (2) As the accuracy of the best model fit <strong>modFit3</strong> is 0.9946, the expected out of sample error is 0.54%; (3) pca methord not necessarily always improves the predictive performance.</p>
+<p>It’s interesting that, according to our data set, random forest outperforms boosting and pca method is better not to be used. My project produces three results: (1) random forest without pca method should be used to original test model; (2) As the accuracy of the best model fit <strong>modFit3</strong> is 0.9948, the expected out of sample error is 0.52%; (3) pca methord not necessarily always improves the predictive performance.</p>
 </div>
 <div id="executing-on-the-original-test-data-set" class="section level2">
 <h2>executing on the original test data set</h2>
