@@ -1,0 +1,169 @@
+---
+title: "Practical machine learning project"
+author: "XU Jing"
+date: "March 31 2017"
+output: html_document
+---
+
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement ?C a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+The training data for this project are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+
+The data for this project come from this source: <http://groupware.les.inf.puc-rio.br/har>. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## What you should submit
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Peer Review Portion
+
+Your submission for the Peer Review portion should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
+
+## Course Project Prediction Quiz Portion
+
+Apply your machine learning algorithm to the 20 test cases available in the test data above and submit your predictions in appropriate format to the Course Project Prediction Quiz for automated grading.
+
+## Reproducibility
+
+Due to security concerns with the exchange of R code, your code will not be run during the evaluation by your classmates. Please be sure that if they download the repo, they will be able to view the compiled HTML version of your analysis.
+
+## Acquiring Data
+
+In order to perform above mentioned forecast modelling project, I need to install following packages. I also listed after each package the affiliated functions which will be used during the following procedure. 
+
+```{r eval=-4, results='hide', message=FALSE, warning=FALSE}
+library(data.table) #fread()
+library(caret) #nearZeroVar(), createDataPartition(), preProcess(), predict(),train(), confusionMatrix()
+library(randomForest) 
+library(forestFloor)
+```
+
+```{r}
+TrainURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+TestURL<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+Training<-fread(TrainURL)
+Testing<-fread(TestURL)
+```
+
+## Data cleansing
+
+The train data set includes 19622 rows and 160 columns, with "classe" as its target variable. However, there are many missing values. Thus I First deleted the columns with NA, missing value and string"#DIV/0!". 
+```{r}
+Delcol<-sapply(Training, function(x) any(is.na(x)|x==""|x=="#DIV/0!"))
+Training<-Training[,names(Training)[!Delcol], with=FALSE]
+dim(Training)
+```
+Second I deleted the columns with near zero variables: "new_window"
+```{r}
+nzv<- nearZeroVar(Training, saveMetrics=TRUE)
+Training<-Training[,which(nzv['nzv']==FALSE),with=FALSE]
+dim(Training)
+```
+## Data Slicing and preprocessing
+
+I set 40% of the training data set as validation data set.  I set seed to get the reproducible random numbers.
+```{r}
+set.seed(33833)
+inTrain<-createDataPartition(y=Training$classe,p=0.6,list=FALSE)
+training<-Training[inTrain,]
+probing<-Training[-inTrain,]
+```
+The first six variables logically has nothing to do with the quality of execution of the weight lifting exercise, therefore I excluded them from being predictors to prevent spurious regression. After confirming their numerical structure nature, I performed centering and scaling toward the other predictors. 
+
+```{r eval=-1}
+str(training)
+predictors<-sapply(training[,-c(59,1:6)],scale)
+training<-training[,c("classe",names(data.table(predictors))),with=FALSE]
+dim(training) 
+predictors<-sapply(probing[,-c(59,1:6)],scale)
+probing<-probing[,c("classe",names(data.table(predictors))),with=FALSE]
+```
+
+As the presence of high dimensional data may contain redundant or highly correlated attributes(19 pairs of predictors pose correlation coefficient larger than 0.8), I employed principal componant analysis to reduce dimensionality of the dataset. The cutoff for the cumulative percent of variance to be retained is 95%. pca reduces the number of attributes from 52 to 24. 
+
+```{r results='hide', message=FALSE, warning=FALSE}
+M<-abs(cor(training[,-1]))
+diag(M)<-0
+which(M>0.8, arr.ind=T)
+
+preProc<-preProcess(training[,-53],method='pca',thresh=0.95)
+trainPC<-predict(preProc,training[,-53])
+dim(trainPC) 
+```
+## Forecasting and evaluation
+
+As random forest,along with boosting, are the most accurate classifiers that we can use, below I fit four predictive models to training data set: (1) random forest with pca method; (2) boosting with pca method; (3) random forest without pca method; (4) boosting without pca method. The four models then are applied to validation data set in order to choose the most fit model with highest accuracy. 
+I used a 2-fold cross-validation control. This is the simplest k-fold cross-validation possible and it will give a reduced computational time. 
+
+```{r results='hide', message=FALSE, warning=FALSE}
+#modFit1
+modFit1<-randomForest(as.factor(classe)~.,data=trainPC,trControl=trainControl(method="cv",number=2))
+ProbPC<-predict(preProc,probing[,-53])
+result1<-confusionMatrix(probing$classe,predict(modFit1,ProbPC))
+#modFit2
+modFit2<-train(as.factor(classe)~.,method='gbm',data=trainPC,trControl=trainControl(method="cv",number=2))
+ProbPC<-predict(preProc,probing[,-53])
+result2<-confusionMatrix(probing$classe,predict(modFit2,ProbPC))
+#modFit3
+modFit3<-randomForest(as.factor(classe)~.,data=training,trControl=trainControl(method="cv",number=2))
+result3<-confusionMatrix(probing$classe,predict(modFit3,probing))
+#modFit4
+modFit4<-train(as.factor(classe)~.,method='gbm',data=training,trControl=trainControl(method="cv",number=2))
+result4<-confusionMatrix(probing$classe,predict(modFit4,probing))
+```
+Below are summation of the above four models:
+
+**modFit1**
+```{r }
+result1
+```
+
+**modFit2**
+```{r }
+result2
+```
+
+**modFit3**
+```{r }
+result3
+```
+
+**modFit4**
+```{r }
+result4
+```
+The out of sample error of the above four models are: 1-0.9693=3%,1-0.8142=19%,1-0.9948=0.52%,1-0.9632=3.7%
+Random forest without pca outperforms the other three models. I further visualized the structure of modFit3 model by plotting predictor variables?? change of predicted probability(y-axis)  due to  variable change(x-axis) with the four most important predictive variables: roll_belt, yaw_belt,pitch_forearm, magnet_dumbbell_z. Use this tip: [forestFloor visualization of randomForest ](http://forestfloor.dk/)
+
+```{r eval=FALSE}
+modFit3<-randomForest(as.factor(classe)~.,data=training,trControl=trainControl(method="cv",number=2),keep.forest=TRUE,keep.inbag=TRUE,importance=TRUE)
+ff = forestFloor(modFit3,training[,-1])
+plot(ff)
+```
+
+![image](https://cloud.githubusercontent.com/assets/26728788/24591075/25c3d088-17ae-11e7-880d-dadbcb0feb3b.png)
+
+
+## Conclusion
+
+It's interesting that, according to our data set, random forest outperforms boosting and pca method is better not to be used. My project produces three results: (1) random forest without pca method should be used to original test model; (2) As the accuracy of the best model fit **modFit3** is 0.9948, the expected out of sample error is 0.52%; (3) pca methord not necessarily always improves the predictive performance. 
+
+## executing on the original test data set
+
+```{r eval=FALSE}
+testing<-Testing[,names(data.table(predictors)),with=FALSE]
+prediction<-predict(modFit3,testing)
+```
+The final outcome is not presented here in keeping with the terms of the Coursera Honor Code.
